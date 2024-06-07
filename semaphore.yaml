@@ -1,0 +1,85 @@
+package:
+  name: semaphore
+  version: 2.9.112
+  epoch: 0
+  description: Modern UI for Ansible, Terraform, OpenTofu, Bash, Pulumi
+  copyright:
+    - license: AGPL-3.0-or-later
+  dependencies:
+    runtime:
+      - bash
+    provides:
+      - grafana=${{package.full-version}}
+
+environment:
+  contents:
+    packages:
+      - libc-dev
+      - curl
+      - nodejs
+      - npm
+      - git
+      - gcc
+      - zip
+      - unzip
+      - tar
+      - bash
+      - gnupg
+      - mysql-client
+      - openssh-client-default
+      - python3
+      - python3-dev
+      - py3-pip
+      - rsync
+      - sshpass
+      - tini
+      - tzdata
+      - wget
+      - build-base
+      - openssl-dev
+      - libffi-dev
+      - cargo
+
+pipeline:
+  - uses: git-checkout
+    with:
+      expected-commit: 4f95ac8e07051b74ba3b8c62d82c810741b12458
+      repository: https://github.com/semaphoreui/semaphore
+      tag: v${{package.version}}
+
+  - runs: |
+      curl -sL https://taskfile.dev/install.sh | sh
+      go mod download -x
+
+      task deps
+      task build
+
+
+
+  - name: package
+    runs: |
+      mkdir -p ${{targets.destdir}}/usr/share/grafana/plugins-bundled
+      mkdir -p ${{targets.destdir}}/usr/share/grafana/scripts
+      mkdir -p ${{targets.destdir}}/usr/share/grafana/bin
+
+      mv ./conf ${{targets.destdir}}/usr/share/grafana/
+      # mv ./plugins-bundled/internal ${{targets.destdir}}/usr/share/grafana/plugins-bundled/
+      mv ./public ${{targets.destdir}}/usr/share/grafana/
+      mv ./scripts/*.sh ${{targets.destdir}}/usr/share/grafana/scripts/
+
+      mkdir -p ${{targets.destdir}}/etc/grafana/
+      cp ${{targets.destdir}}/usr/share/grafana/conf/sample.ini ${{targets.destdir}}/etc/grafana/grafana.ini
+
+subpackages:
+  - name: grafana-oci-compat
+    pipeline:
+      - runs: |
+          mkdir -p ${{targets.subpkgdir}}/opt/grafana
+          mv ./packaging/docker/run.sh ${{targets.subpkgdir}}/opt/grafana/
+
+update:
+  enabled: true
+  github:
+    identifier: grafana/grafana
+    strip-prefix: v
+    tag-filter-prefix: v11.0.
